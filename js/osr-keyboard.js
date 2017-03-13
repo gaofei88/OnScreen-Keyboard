@@ -6,7 +6,6 @@
 		if(options == undefined && typeof action === 'object'){
 			options = action;
 			action = undefined;
-			console.log("111")
 		}
 
 		if(action == 'show' || action == undefined){

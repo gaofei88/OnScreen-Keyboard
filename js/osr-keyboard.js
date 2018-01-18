@@ -1,8 +1,31 @@
 'use strict';
 
 (function($){
+	var currentKeyboardContext, reservedOldValueForKeyboard = "";
+	var currentKeyboardCounter, keyboardCounter = 0;
+
+	setInterval(function(){
+		var inputs = $('input');
+	    inputs.each(function(i){
+	        $(inputs[i]).focus(function(){
+	            $(this).osrKeyboard();
+	        });
+	    });
+	}, 2000);
 
 	$.fn.osrKeyboard = function(action, options){
+		if(currentKeyboardCounter != $(this).data("keyboard-counter")){
+			currentKeyboardCounter = $(this).data("keyboard-counter");
+			reservedOldValueForKeyboard = "";
+		}
+		currentKeyboardContext = this;
+		
+		$(currentKeyboardContext)[0].setSelectionRange(reservedOldValueForKeyboard.length, reservedOldValueForKeyboard.length);
+
+		if($(this).data('keyboard_init')){
+			show_keyboard();
+			return;
+		}
 		if(options == undefined && typeof action === 'object'){
 			options = action;
 			action = undefined;
@@ -14,52 +37,59 @@
 				defaultEnterAction = options.onEnter;
 			}else{
 				defaultEnterAction = function(){
-					$('#osrKeyboard').slideUp();
+					reservedOldValueForKeyboard = "";
+					$('#osrKeyboard').hide();
 				}
 			}
 
 			init_keyboard(this, defaultEnterAction);
-			if(action == 'show') show_keyboard(this);
-
-			$(this).on('click', function(e){ $(this).osrKeyboard('show'); });
+			$(this).data('keyboard_init', true);
 		}
 		return this;
-	}
+	};
 
 	function init_keyboard(_this, enterAction){
+		$(_this).data("keyboard-counter", keyboardCounter++);
 		if($('#osrKeyboard').length == 0){
 			$('body').append(build_keyboard_interface())
 					 .append(build_css());
 			$('#osrKeyboard span').click(function(e){
-				var input_val = parseInt($(this).data('bind'));
-				fireKeyEvent($(_this)[0], 'keydown', input_val);
-				$(_this).val(function(index, val){
+				var input_val = $(this).data('bind');
+				if(input_val === 'close'){
+                    $('#osrKeyboard').hide();
+					return false;
+				}
+				input_val = parseInt(input_val);
+
+				fireKeyEvent($(currentKeyboardContext)[0], 'keydown', input_val);
+				$(currentKeyboardContext).val(function(index, val){
 					if(input_val === 8){
-						return val.substr(0, val.length - 1);
+						reservedOldValueForKeyboard = reservedOldValueForKeyboard.substr(0, reservedOldValueForKeyboard.length - 1);
 					}else if(input_val === 13){
 						enterAction();
-						return val;
 					}else{
-						return val + String.fromCharCode(input_val);
+						reservedOldValueForKeyboard += String.fromCharCode(input_val);
 					}
-				}).focus();				
+					return reservedOldValueForKeyboard;
+				}).trigger("input");				
 			});
 
+			show_keyboard();
 		}
-		
 	}
 
-	function show_keyboard(_this){
+	function show_keyboard(){
 		if($('#osrKeyboard:visible').length == 0){
 			$('#osrKeyboard').css("width", $(window).width() + 2).show();
-			$(_this).focus();
+			$('#osrKeyboard').show();
 		}
 	}
 
 	function fireKeyEvent(el, evtType, keyCode){  
 	    var doc = el.ownerDocument,  
 	        win = doc.defaultView || doc.parentWindow,  
-	        evtObj;  
+	        evtObj;
+
 	    if(doc.createEvent){  
 	        if(win.KeyEvent) {  
 	            evtObj = doc.createEvent('KeyEvents');  
@@ -91,6 +121,7 @@
 
 	function build_keyboard_interface(){
 		return "<div id='osrKeyboard' style='position:absolute; margin-left: -10px; bottom: 0; height: 238px; background: #525252; display:none;'>" +
+					"<span class='osrKeyboard-close' data-bind='close' style='position: absolute; right: 20px; top: 10px; color: white; font-size: 32px; font-weight: 900; cursor: pointer;'>&times;</span>" +
 					"<div class='osrKeyboard-key-areas' style='width: 552px; margin: 10px auto;''>" +
 						"<table style='width: 550px'>" +
 							"<tr>" +
@@ -148,6 +179,9 @@
 
 	function build_css(){
 		return "<style>" +
+					"#osrKeyboard {" +
+						"z-index: 99999;" +
+					"}" +
 					"#osrKeyboard table td span{" +
 					    "height: 36px;" +
 					    "width: 48px;" +
